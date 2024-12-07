@@ -1,29 +1,30 @@
 package galimimus.org.hlsserver.helpers;
 
+import com.google.gson.Gson;
 import galimimus.org.hlsserver.HelloApplication;
-import net.bramp.ffmpeg.FFmpeg;
-import net.bramp.ffmpeg.FFmpegExecutor;
-import net.bramp.ffmpeg.FFprobe;
-import net.bramp.ffmpeg.builder.FFmpegBuilder;
-import net.bramp.ffmpeg.probe.FFmpegProbeResult;
-import net.bramp.ffmpeg.probe.FFmpegStream;
-
-import net.bramp.ffmpeg.builder.FFmpegBuilder;
-import net.bramp.ffmpeg.probe.FFmpegProbeResult;
-import net.bramp.ffmpeg.probe.FFmpegStream;
+import galimimus.org.hlsserver.models.FoldersPaths;
+import galimimus.org.hlsserver.models.Video;
 
 import java.io.File;
 import java.io.IOException;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static galimimus.org.hlsserver.helpers.Helper.readFromResourceStream;
 
 
 public class ProcessMP4 {
     static final Logger log = Logger.getLogger(HelloApplication.class.getName());
-    static final String PATH_TO_FFMPEG = "/bin/ffmpeg";
+    static Gson g = new Gson();
+    static FoldersPaths settings_paths = g.fromJson(readFromResourceStream(Paths.get("settings_paths.json")), FoldersPaths.class);
+
+    static Video[] settings_videos = g.fromJson(readFromResourceStream(Paths.get("videos.json")), Video[].class);
+
 
     private static boolean createDir(String dirName){
         boolean mkdir_res = new File(dirName).mkdir();
@@ -48,18 +49,12 @@ public class ProcessMP4 {
         return true;
     }
 
-    private static boolean createTsFiles(String fileMP4, String resolutionPath){
+    private static void createTsFiles(String fileMP4, String resolutionPath, String seg_time){
         createDir(resolutionPath);
         //String PATH_TO_FFMPEG = "ffmpeg";
-        //exec('ffmpeg -i abc.mp4 -c:v libx264 -c:a aac -b:a 160k -bsf:v h264_mp4toannexb -f mpegts -crf 32 pqr.ts');
-        //ffmpeg -y -i sample.avi -ss 00:00:10 -to 00:00:20 -vcodec libx264 -acodec aac -vf scale=426:-1 -muxdelay 10 out1.ts
 
-        //ffmpeg -y -i /home/galimimus/IdeaProjects/HLSserver/video1.mp4 -c:v libx264 -c:a aac -bsf:v h264_mp4toannexb
-        // -bsf:a aac_adtstoasc -map 0 -f segment -segment_time 10 -segment_format mpegts
-        // -segment_list /home/galimimus/IdeaProjects/HLSserver/server/video1/240/video.m3u8 -segment_list_type m3u8
-        // /home/galimimus/IdeaProjects/HLSserver/server/video1/240/video%03d.ts
         ProcessBuilder pb = new ProcessBuilder(
-          PATH_TO_FFMPEG, "-y",
+                settings_paths.SETTINGS_FFMPEG_PATH, "-y",
           "-i", fileMP4,
           "-c:v", "libx264",
           "-c:a", "aac",
@@ -67,36 +62,13 @@ public class ProcessMP4 {
           "-bsf:a", "aac_adtstoasc",
           "-map", "0",
           "-f", "segment",
-          "-segment_time", "10",
+          //"-t", seg_time,
+          "-segment_time", seg_time, //Обрезается только на keyframes(переход от кадра к кадру)
           "-segment_format", "mpegts",
           "-segment_list", resolutionPath + "/video.m3u8",
           "-segment_list_type", "m3u8",
           resolutionPath + "/%04d.ts"
         );
-        /*ProcessBuilder pb = new ProcessBuilder(
-                "ffmpeg", "-y",
-                "-i", fileMP4,
-                "-c:v", "libx264",
-                "-c:a", "aac",
-                "-bsf", "h264_mp4toannexb",
-                "-map", "0",
-                "-f", "segment",
-                "-segment-time", "10",
-                "-segment-list", resolutionPath + "/video.m3u8",
-                "-segment_list_type", "m3u8",
-                resolutionPath + "/part%03d.ts"
-        );
-        /*ffmpeg -y \
- -i sample.mov \
- -codec copy \
- -bsf h264_mp4toannexb \
- -map 0 \
- -f segment \
- -segment_time 10 \
- -segment_format mpegts \
- -segment_list "/Library/WebServer/Documents/vod/prog_index.m3u8" \
- -segment_list_type m3u8 \
- "/Library/WebServer/Documents/vod/fileSequence%d.ts"*/
 
         Process process = null;
         try {
@@ -105,65 +77,44 @@ public class ProcessMP4 {
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         }
-        /*
-        FFmpeg ffmpeg = null;
-        try {
-            ffmpeg = new FFmpeg(PATH_TO_FFMPEG); // Путь к исполнимому файлу ffmpeg
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        if (ffmpeg==null) return false;
-
-        FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(fileMP4) // Исходное видео
-                .addOutput(String.format(resolutionPath + "/%04d.ts")) // Формат имени выходных файлов
-                .setFormat("mpegts") // Формат TS
-                .setVideoCodec("libx264") // Видео кодек (H.264)
-                .setAudioCodec("aac") // Аудио кодек (AAC)
-                .setVideoBitRate(1500_000) // Устанавливаем битрейт видео
-                .setAudioBitRate(128_000)
-                //.set// Устанавливаем битрейт аудио
-                //.setSegmentTime(10) // Разделение на сегменты по 10 секунд
-                //.setHlsPlaylist(true)
-                //.setOutput// Включаем создание HLS плейлиста
-                //.addExtraArgs("-hls_time", "10")
-                //.addExtraArgs("-hls_list_size", "0")
-                //.addExtraArgs("-hls_segment_type", "mpegts")
-                .addExtraArgs("-f", "mpegts")
-                //.addOutput(resolutionPath+"playlist.m3u8")
-                .done(); // Создаем команду
-
-        // Запуск конвертации
-        try {
-            ffmpeg.run(builder);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }*/
-        return true;
     }
 
 
 
-    public static void processMP4(File mp4_file){
-        //TODO: Создается папка с именем файла, неэффиктивно, нужно добавить id, делая папку с подобным именем.
-        // В пост запросе помимо имен передавать названия файлов
-        // (мб сделать заранее подготовленный json и обновлять его только при добавлении нового видео файла.)
+    public static void processMP4(File mp4_file, String ts_len){
 
         String baseFileName = mp4_file.getName().replaceFirst("[.][^.]+$", "");
-        String newFileDirName = "/home/galimimus/IdeaProjects/HLSserver/server/" + baseFileName;
-        if (!createDir(newFileDirName)) return;
-
-        createTsFiles(mp4_file.getAbsolutePath(), newFileDirName+"/240");
-
-
-/*
-        boolean create_m3u8_res = createPlaylistM3U8(newFileDirName, mp4_file);
-        if(!create_m3u8_res){
-            log.logp(Level.SEVERE, "ProcessMP4", "processMP4", "Could not create new playlist file. Sharing file failed. Exiting.");
+        Video newVideo = new Video();
+        newVideo.SETTINGS_VIDEO_FOLDER = Integer.toHexString(mp4_file.hashCode());
+        newVideo.SETTINGS_VIDEO_NAME = baseFileName;
+        String newFileDirName = settings_paths.SETTINGS_SERVER_PATH + "/" + newVideo.SETTINGS_VIDEO_FOLDER;
+        if (!createDir(newFileDirName)){
+            log.logp(Level.SEVERE, "ProcessMP4", "ProcessMP4", "Could not create new directory \"" + newFileDirName + "\", directory already exist.");
             return;
         }
-*/
+        // TODO: НУЖНО ЧТО-ТО СДЕЛАТЬ С РАЗРЕШЕНИЕМ. ПОПРОБОВАТЬ ПЕРЕГОНЯТЬ ЧЕРЕЗ FFMPEG.
+        createTsFiles(mp4_file.getAbsolutePath(), newFileDirName+"/240", ts_len);
+        ArrayList<Video> tmpList;
+        if (settings_videos != null) {
+            tmpList = new ArrayList(Arrays.asList(settings_videos));
+        }else {
+            tmpList = new ArrayList<Video>();
+        }
+        if(!tmpList.contains(newVideo)) {
+            tmpList.add(newVideo);
+
+
+            try {
+
+                FileOutputStream os = new FileOutputStream(String.valueOf(Paths.get("videos.json")));
+                byte[] tmp = g.toJson(tmpList.toArray()).getBytes();
+                os.write(tmp);
+                os.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
     }
 
 

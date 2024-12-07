@@ -11,10 +11,9 @@ import java.util.logging.LogManager;
 public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
-        //FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hello-view.fxml"));
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("server_window.fxml"));
         Scene scene = new Scene(fxmlLoader.load());
-        //stage.setTitle("Hello!");
+        stage.setTitle("HLS server application");
         stage.setScene(scene);
         try {
             LogManager.getLogManager().readConfiguration(
