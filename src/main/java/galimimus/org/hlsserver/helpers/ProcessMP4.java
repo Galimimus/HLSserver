@@ -35,22 +35,9 @@ public class ProcessMP4 {
         return true;
     }
 
-    private static boolean createM3U8File(String fileName){
-        File file = new File(fileName);
-        try {
-            boolean file_res = file.createNewFile();
-            if(!file_res) {
-                log.logp(Level.SEVERE, "ProcessMP4", "createM3U8File", "Could not create new M3U8 file \"" + fileName + "\", file already exist.");
-                return false;
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return true;
-    }
 
     private static void createTsFiles(String fileMP4, String resolutionPath, String seg_time){
-        createDir(resolutionPath);
+        //createDir(resolutionPath);
         //String PATH_TO_FFMPEG = "ffmpeg";
 
         ProcessBuilder pb = new ProcessBuilder(
@@ -67,6 +54,9 @@ public class ProcessMP4 {
           "-segment_format", "mpegts",
           "-segment_list", resolutionPath + "/video.m3u8",
           "-segment_list_type", "m3u8",
+          "-g", String.valueOf((int) (Integer.parseInt(seg_time) * 25)),
+          "-keyint_min", String.valueOf((int) (Integer.parseInt(seg_time) * 25)),
+          "-force_key_frames", "expr:gte(t," + seg_time + ")",
           resolutionPath + "/%04d.ts"
         );
 
@@ -85,15 +75,12 @@ public class ProcessMP4 {
 
         String baseFileName = mp4_file.getName().replaceFirst("[.][^.]+$", "");
         Video newVideo = new Video();
-        newVideo.SETTINGS_VIDEO_FOLDER = Integer.toHexString(mp4_file.hashCode());
-        newVideo.SETTINGS_VIDEO_NAME = baseFileName;
+        newVideo.SETTINGS_VIDEO_FOLDER = Integer.toHexString(mp4_file.hashCode())+"_"+ts_len;
+        newVideo.SETTINGS_VIDEO_NAME = baseFileName+"_"+ts_len;
         String newFileDirName = settings_paths.SETTINGS_SERVER_PATH + "/" + newVideo.SETTINGS_VIDEO_FOLDER;
-        if (!createDir(newFileDirName)){
-            log.logp(Level.SEVERE, "ProcessMP4", "ProcessMP4", "Could not create new directory \"" + newFileDirName + "\", directory already exist.");
-            return;
-        }
+        createDir(newFileDirName);
         // TODO: НУЖНО ЧТО-ТО СДЕЛАТЬ С РАЗРЕШЕНИЕМ. ПОПРОБОВАТЬ ПЕРЕГОНЯТЬ ЧЕРЕЗ FFMPEG.
-        createTsFiles(mp4_file.getAbsolutePath(), newFileDirName+"/240", ts_len);
+        createTsFiles(mp4_file.getAbsolutePath(), newFileDirName+"/", ts_len);
         ArrayList<Video> tmpList;
         if (settings_videos != null) {
             tmpList = new ArrayList(Arrays.asList(settings_videos));
@@ -104,12 +91,15 @@ public class ProcessMP4 {
             tmpList.add(newVideo);
 
 
+
             try {
 
                 FileOutputStream os = new FileOutputStream(String.valueOf(Paths.get("videos.json")));
                 byte[] tmp = g.toJson(tmpList.toArray()).getBytes();
                 os.write(tmp);
                 os.close();
+                settings_videos = g.fromJson(readFromResourceStream(Paths.get("videos.json")), Video[].class);
+
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

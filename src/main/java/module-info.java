@@ -3,7 +3,6 @@ module galimimus.org.hlsserver {
     requires javafx.fxml;
     requires jdk.httpserver;
     requires java.desktop;
-    requires ffmpeg;
     requires static lombok;
     requires com.google.gson;
     requires java.logging;

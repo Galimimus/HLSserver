@@ -76,7 +76,7 @@ public class ServerWindowController {
     public void RenewTextArea(ActionEvent actionEvent) {
         String new_text = "";
         try {
-            new_text = Files.readString(Paths.get("/home/galimimus/IdeaProjects/HLSserver/server_log.txt"));
+            new_text = Files.readString(Paths.get("server_log.txt"));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

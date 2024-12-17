@@ -96,6 +96,7 @@ public class HTTPServer {
                 }
             }
             else if("POST".equalsIgnoreCase(t.getRequestMethod())){
+                settings_videos = g.fromJson(readFromResourceStream(Paths.get("videos.json")), Video[].class);
                 File directoryPath = new File(settings_paths.SETTINGS_SERVER_PATH);
                 String[] contents = directoryPath.list();
                 String str_contents = "";
